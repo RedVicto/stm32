@@ -37,13 +37,7 @@ typedef unsigned int uint32_t;
  */
 #define GPIO_ALIAS_BASE (0x42000000 + (0x10800 * 32))
 #define GPIO_ALIAS_STEP (GPIOSTEP * 32)
-#define GPIO_ALIAS_A GPIO_ALIAS_BASE
-#define GPIO_ALIAS_B (GPIO_ALIAS_A + GPIO_ALIAS_STEP)
-#define GPIO_ALIAS_C (GPIO_ALIAS_B + GPIO_ALIAS_STEP)
-#define GPIO_ALIAS_D (GPIO_ALIAS_C + GPIO_ALIAS_STEP)
-#define GPIO_ALIAS_E (GPIO_ALIAS_D + GPIO_ALIAS_STEP)
-#define GPIO_ALIAS_F (GPIO_ALIAS_E + GPIO_ALIAS_STEP)
-#define GPIO_ALIAS_G (GPIO_ALIAS_F + GPIO_ALIAS_STEP)
+
 
 /**
  * Port configuration register low (GPIOx_CRL) (x=A..G)
@@ -98,5 +92,121 @@ typedef struct{
 	gpio_mode_st mode;
 	gpio_cnf_st cnf;
 }gpio_cr_st;
+
+typedef struct{
+	gpio_cr_st cr[16];
+	/**
+	 * Port input data register (GPIOx_IDR) (x=A..G)
+	 * Address offset: 0x08h
+	 * Reset value: 0x0000 XXXX
+	 * Bits 15:0 IDRy[15:0]: Port input data (y= 0 .. 15)
+	 * These bits are read only and can be accessed in Word mode only.
+	 * They contain the input value of the corresponding I/O port.
+	 *
+	 */
+	uint32_t idr[32];
+	/**
+	 * Port output data register (GPIOx_ODR) (x=A..G)
+	 * Address offset: 0x0Ch
+	 * Reset value: 0x0000 0000
+	 * ODRy[15:0]: Port output data (y= 0 .. 15)
+	 * These bits can be read and written by software and can be accessed in Word mode only.
+	 * Note: For atomic bit set/reset, the ODR bits can be individually set and cleared
+	 * by writing to the GPIOx_BSRR register (x = A .. G).
+	 */
+	uint32_t odr[32];
+	/**
+	 * Port bit set/reset register (GPIOx_BSRR) (x=A..G)
+	 * Address offset: 0x10
+	 * Reset value: 0x0000 0000
+	 * Bits 31:16 BRy: Port x Reset bit y (y= 0 .. 15)
+	 * These bits are write-only and can be accessed in Word mode only.
+	 * 0: No action on the corresponding ODRx bit
+	 * 1: Reset the corresponding ODRx bit
+	 * Note: If both BSx and BRx are set, BSx has priority.
+	 * Bits 15:0 BSy: Port x Set bit y (y= 0 .. 15)
+	 * These bits are write-only and can be accessed in Word mode only.
+	 * 0: No action on the corresponding ODRx bit
+	 * 1: Set the corresponding ODRx bit
+	 */
+	uint32_t bs[16];
+	uint32_t br[16];
+	/**
+	 * Port bit reset register (GPIOx_BRR) (x=A..G)
+	 * Address offset: 0x14
+	 * Reset value: 0x0000 0000
+	 * Bits 31:16 Reserved
+	 * Bits 15:0 BRy: Port x Reset bit y (y= 0 .. 15)
+	 * These bits are write-only and can be accessed in Word mode only.
+	 * 0: No action on the corresponding ODRx bit
+	 * 1: Reset the corresponding ODRx bit
+	 */
+	uint32_t brr[32];
+	/**
+	 * Port configuration lock register (GPIOx_LCKR) (x=A..G)
+	 * This register is used to lock the configuration of the port bits when
+	 * a correct write sequence is applied to bit 16 (LCKK). The value of bits [15:0] is
+	 *  used to lock the configuration of the GPIO. During the write sequence,
+	 *  the value of LCKR[15:0] must not change. When the LOCK sequence has been applied
+	 *  on a port bit it is no longer possible to modify the value of the port bit until
+	 *  the next reset. Each lock bit freezes the corresponding 4 bits of the control
+	 *   register (CRL, CRH).
+	 *   Address offset: 0x18
+	 *   Reset value: 0x0000 0000
+	 *   Bit 16 LCKK[16]: Lock key
+	 *   This bit can be read anytime. It can only be modified using the Lock Key
+	 *   Writing Sequence.
+	 *   0: Port configuration lock key not active
+	 *   1: Port configuration lock key active. GPIOx_LCKR register is locked
+	 *   until an MCU reset occurs.
+	 *   LOCK key writing sequence:
+	 *   Write 1
+	 *   Write 0
+	 *   Write 1
+	 *   Read 0
+	 *   Read 1 (this read is optional but confirms that the lock is active)
+	 *   Note: During the LOCK Key Writing sequence, the value of LCK[15:0] must not change.
+	 *   Any error in the lock sequence will abort the lock.
+	 *   Bits 15:0 LCKy: Port x Lock bit y (y= 0 .. 15)
+	 *   These bits are read write but can only be written when the LCKK bit is 0.
+	 *   0: Port configuration not locked
+	 *   1: Port configuration locked.
+	 */
+	uint32_t lck[16];
+	uint32_t lckk;
+
+}gpio_st;
+
+#define GPIO_ALIAS_A ((gpio_st *)GPIO_ALIAS_BASE)
+#define GPIO_ALIAS_B ((gpio_st *)(GPIO_ALIAS_A + GPIO_ALIAS_STEP))
+#define GPIO_ALIAS_C ((gpio_st *)(GPIO_ALIAS_B + GPIO_ALIAS_STEP))
+#define GPIO_ALIAS_D ((gpio_st *)(GPIO_ALIAS_C + GPIO_ALIAS_STEP))
+#define GPIO_ALIAS_E ((gpio_st *)(GPIO_ALIAS_D + GPIO_ALIAS_STEP))
+#define GPIO_ALIAS_F ((gpio_st *)(GPIO_ALIAS_E + GPIO_ALIAS_STEP))
+#define GPIO_ALIAS_G ((gpio_st *)(GPIO_ALIAS_F + GPIO_ALIAS_STEP))
+
+static void set_gpioa(uint32_t port){
+	if(port > 15){
+		return;
+	}
+	GPIO_ALIAS_A->bs[port] = 1;
+}
+
+static void reset_gpioa(uint32_t port){
+	if(port > 15){
+		return;
+	}
+	GPIO_ALIAS_A->br[port] = 1;
+}
+
+static void set_output_gpioa(uint32_t port){
+	if(port > 15){
+		return;
+	}
+	GPIO_ALIAS_A->cr[port].cnf.cnf0 = 0;
+	GPIO_ALIAS_A->cr[port].cnf.cnf1 = 0;
+	GPIO_ALIAS_A->cr[port].mode.mode0 = 1;
+	GPIO_ALIAS_A->cr[port].mode.mode1 = 1;
+}
 
 #endif /* GPIO_H_ */
